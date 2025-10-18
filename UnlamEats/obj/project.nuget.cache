@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "6m0GoQdXYrw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\crisg\\source\\repos\\UnlamEats\\UnlamEats\\UnlamEats.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\crisg\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.22.1\\microsoft.visualstudio.azure.containers.tools.targets.1.22.1.nupkg.sha512"
+  ],
+  "logs": []
+}
