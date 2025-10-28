@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: GatewayAPI/Dockerfile
     ports:
-      - "8000:8080" # El puerto público de la aplicación
+      - "8000:8080"
 
   # Microservicio de Restaurantes
   restauranteapi:
@@ -15,9 +15,10 @@ services:
       context: .
       dockerfile: RestauranteAPI/Dockerfile
     ports:
-      - "8001:8080" # Puerto interno para debugging
+      - "8001:8080"
     depends_on:
-      - restaurantedb
+      restaurantedb:
+        condition: service_healthy # Espera a que el puerto 1433 de restaurantedb esté abierto
     environment:
       - ConnectionStrings__DefaultConnection=Server=restaurantedb;Database=RestauranteDB;User=sa;Password=Your_password123;TrustServerCertificate=True
 
@@ -28,24 +29,68 @@ services:
       context: .
       dockerfile: PedidosAPI/Dockerfile
     ports:
-      - "8002:8080" # Puerto interno para debugging
+      - "8002:8080"
     depends_on:
-      - pedidosdb
+      pedidosdb:
+        condition: service_healthy # Espera a que el puerto 1433 de pedidosdb esté abierto
     environment:
       - ConnectionStrings__DefaultConnection=Server=pedidosdb;Database=PedidosDB;User=sa;Password=Your_password123;TrustServerCertificate=True
 
-  # Base de Datos para Restaurantes
+  # --- Microservicio de Productos ---
+  productosapi:
+    image: ${DOCKER_REGISTRY-}productosapi
+    build:
+      context: .
+      dockerfile: ProductosAPI/Dockerfile
+    ports:
+      - "8003:8080"
+    depends_on:
+      productosdb:
+        condition: service_healthy # Espera a que el puerto 1433 de productosdb esté abierto
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=productosdb;Database=ProductosDB;User=sa;Password=Your_password123;TrustServerCertificate=True
+
+  # --- Base de Datos para Restaurantes ---
   restaurantedb:
     image: mcr.microsoft.com/mssql/server:2022-latest
     ports:
-      - "1434:1433" # Mapea a un puerto único en el host
+      - "1434:1433"
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=Your_password123
+    healthcheck: # <-- HEALTHCHECK SIMPLIFICADO
+      test: ["CMD-SHELL", "bash -c 'exec 3<> /dev/tcp/localhost/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
-  # Base de Datos para Pedidos
+  # --- Base de Datos para Pedidos ---
   pedidosdb:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1435:1433"
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=Your_password123
+    healthcheck: # <-- HEALTHCHECK SIMPLIFICADO
+      test: ["CMD-SHELL", "bash -c 'exec 3<> /dev/tcp/localhost/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --- Base de Datos para Productos ---
+  productosdb:
+    image: "mcr.microsoft.com/mssql/server:2022-latest"
+    ports:
+      - "1436:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_password123
+    healthcheck: # <-- HEALTHCHECK SIMPLIFICADO
+      test: ["CMD-SHELL", "bash -c 'exec 3<> /dev/tcp/localhost/1433'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
