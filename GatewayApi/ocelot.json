@@ -1,6 +1,5 @@
 {
   "Routes": [
-    // --- Rutas para el Microservicio de Restaurantes ---
     {
       "UpstreamPathTemplate": "/restaurantes/{*everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -13,7 +12,6 @@
         }
       ]
     },
-    // --- Rutas para el Microservicio de Pedidos ---
     {
       "UpstreamPathTemplate": "/pedidos/{*everything}",
       "UpstreamHttpMethod": [ "GET", "POST", "PUT", "DELETE" ],
@@ -26,11 +24,10 @@
         }
       ]
     },
-    // --- Rutas para el Microservicio de Productos (BASE) ---
     {
-      "UpstreamPathTemplate": "/productos", // SIN BARRA AL FINAL
-      "UpstreamHttpMethod": [ "GET", "POST" ], // Solo GET (listar) y POST (crear) aplican acá
-      "DownstreamPathTemplate": "/api/productos", // SIN BARRA AL FINAL
+      "UpstreamPathTemplate": "/productos", 
+      "UpstreamHttpMethod": [ "GET", "POST" ], 
+      "DownstreamPathTemplate": "/api/productos",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
@@ -39,11 +36,10 @@
         }
       ]
     },
-    // --- Rutas para el Microservicio de Productos (CON ID o más) ---
     {
-      "UpstreamPathTemplate": "/productos/{everything}", // CON PLACEHOLDER, SIN '*'
-      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ], // GET(id), PUT(id), DELETE(id)
-      "DownstreamPathTemplate": "/api/productos/{everything}", // CON PLACEHOLDER
+      "UpstreamPathTemplate": "/productos/{everything}",
+      "UpstreamHttpMethod": [ "GET", "PUT", "DELETE" ],
+      "DownstreamPathTemplate": "/api/productos/{everything}", 
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {

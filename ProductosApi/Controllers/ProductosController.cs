@@ -1,7 +1,12 @@
-﻿// /Controllers/ProductosController.cs
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ProductosApi.Models;
-using ProductosApi.Services; // <-- Importar el servicio
+using ProductosApi.Services;
 
 namespace ProductosApi.Controllers
 {
@@ -9,118 +14,151 @@ namespace ProductosApi.Controllers
     [ApiController]
     public class ProductosController : ControllerBase
     {
-        // ¡¡El controlador YA NO conoce el DbContext!!
-        // Ahora solo conoce el SERVICIO.
-        private readonly IProductoService _productoService;
+        private readonly ProductoContext _context;
 
-        public ProductosController(IProductoService productoService) // <-- Pide el servicio
+        public ProductosController(ProductoContext context)
         {
-            _productoService = productoService;
+            _context = context;
         }
 
-        // GET: api/Productos
+        // GET:
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Producto>>> GetProductos(
             [FromQuery] string? nombre,
             [FromQuery] decimal? precioMax)
         {
-            // El controlador solo llama al servicio
-            var productos = await _productoService.GetProductosAsync(nombre, precioMax);
-            return Ok(productos); // Devuelve una respuesta 200 OK
+            var query = _context.Productos.AsQueryable();
+
+            if (!string.IsNullOrEmpty(nombre))
+            {
+               
+                query = query.Where(p => p.Nombre.Contains(nombre));
+            }
+
+            if (precioMax.HasValue)
+            {
+                query = query.Where(p => p.Precio <= precioMax.Value);
+            }
+
+            return await query.ToListAsync();
         }
 
-        // GET: api/Productos/5
+        // GET:
         [HttpGet("{id}")]
         public async Task<ActionResult<Producto>> GetProducto(int id)
         {
-            var producto = await _productoService.GetProductoByIdAsync(id);
+            var producto = await _context.Productos.FindAsync(id);
 
             if (producto == null)
             {
-                // El controlador decide qué respuesta HTTP dar
-                return NotFound(); // 404
+                return NotFound();
             }
 
-            return Ok(producto); // 200
+            return producto;
         }
 
-        // PUT: api/Productos/5
+        // PUT:
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProducto(int id, Producto producto)
         {
-            // --- Validación de Request ---
             if (id != producto.Id)
             {
-                return BadRequest("El ID de la URL no coincide con el ID del producto.");
+                return BadRequest();
             }
 
-            // --- Validación de Modelo (¡AUTOMÁTICA!) ---
-            // Gracias a [ApiController] y tus DataAnnotations en Producto.cs
-            // (como [Required], [Range], [StringLength]),
-            // si el nombre está vacío o el precio es negativo,
-            // ASP.NET Core devolverá un 400 BadRequest AUTOMÁTICAMENTE.
-            //
-            // ¡¡PUEDES BORRAR TODOS TUS 'if' DE VALIDACIÓN MANUAL!!
-            // (string.IsNullOrWhiteSpace, producto.Precio < 0, etc.)
-
-            // --- Validación de Lógica de Negocio (Duplicados) ---
-            if (await _productoService.CheckIfNameExistsAsync(producto.Nombre, id))
+            if (string.IsNullOrWhiteSpace(producto.Nombre))
             {
-                // Usamos el servicio para la regla de negocio
-                return Conflict("Ya existe OTRO producto con ese nombre."); // 409
+                return BadRequest("El nombre del producto no puede estar vacío.");
             }
-
-            // --- Ejecución ---
-            var success = await _productoService.UpdateProductoAsync(id, producto);
-
-            if (!success)
+            if (producto.Nombre.Length > 100)
             {
-                return NotFound(); // 404 (si el servicio no lo encontró)
+                return BadRequest("El nombre del producto no puede exceder los 100 caracteres.");
             }
 
-            return NoContent(); // 204 (Éxito, sin contenido)
+            if (producto.Precio < 0)
+            {
+                return BadRequest("El precio del producto no puede ser negativo.");
+            }
+            if (producto.Stock < 0)
+            {
+                return BadRequest("El stock del producto no puede ser negativo.");
+            }
+
+            producto.Disponible = (producto.Stock > 0);
+
+            _context.Entry(producto).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProductoExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
         }
 
-        // POST: api/Productos
+        // POST:
         [HttpPost]
         public async Task<ActionResult<Producto>> PostProducto(Producto producto)
         {
-            // --- Validación de Modelo (AUTOMÁTICA) ---
-            // (precio > 0, stock >= 0, nombre requerido, etc.)
-            // ¡Ya no necesitas los 'if' manuales!
-
-            // --- Validación de Lógica de Negocio (Duplicados) ---
-            if (await _productoService.CheckIfNameExistsAsync(producto.Nombre))
+            if (producto.Precio < 0)
             {
-                return Conflict("Ya existe un producto con ese nombre."); // 409
+                return BadRequest("El precio del producto no puede ser negativo.");
             }
+            if (producto.Stock < 0)
+            {
+                return BadRequest("El stock del producto no puede ser negativo.");
+            }
+            if (string.IsNullOrWhiteSpace(producto.Nombre))
+            {
+                return BadRequest("El nombre del producto no puede estar vacío.");
+            }
+            if (producto.Nombre.Length > 100)
+            {
+                return BadRequest("El nombre del producto no puede exceder los 100 caracteres.");
+            }
+            bool nombreYaExiste = await _context.Productos
+                                        .AnyAsync(p => p.Nombre.ToLower() == producto.Nombre.ToLower());
+            if (nombreYaExiste)
+            {
+                return Conflict("Ya existe un producto con ese nombre.");
+            }
+            producto.Disponible = (producto.Stock > 0);
+            _context.Productos.Add(producto);
+            await _context.SaveChangesAsync();
 
-            // --- Ejecución ---
-            var productoCreado = await _productoService.CreateProductoAsync(producto);
-
-            // Devolvemos 201 Created
-            return CreatedAtAction(
-                nameof(GetProducto), // Nombre de la acción para "ver" el recurso
-                new { id = productoCreado.Id }, // Parámetro de ruta
-                productoCreado); // El objeto creado
+            return CreatedAtAction(nameof(GetProducto), new { id = producto.Id }, producto);
         }
 
-        // DELETE: api/Productos/5
+        // DELETE:
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProducto(int id)
         {
-            var success = await _productoService.DeleteProductoAsync(id);
-
-            if (!success)
+            var producto = await _context.Productos.FindAsync(id);
+            if (producto == null)
             {
-                return NotFound(); // 404
+                return NotFound();
             }
 
-            return NoContent(); // 204
+            _context.Productos.Remove(producto);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
-        // Esta función ya no es necesaria aquí,
-        // la lógica similar está en el servicio.
-        // private bool ProductoExists(int id) { ... }
+        private bool ProductoExists(int id)
+        {
+            return _context.Productos.Any(e => e.Id == id);
+        }
     }
 }

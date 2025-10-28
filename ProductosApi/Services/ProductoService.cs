@@ -1,12 +1,10 @@
-﻿// /Services/ProductoService.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ProductosApi.Models;
 
 namespace ProductosApi.Services
 {
     public class ProductoService : IProductoService
     {
-        // ¡El servicio ahora maneja el Context!
         private readonly ProductoContext _context;
 
         public ProductoService(ProductoContext context)
@@ -38,17 +36,15 @@ namespace ProductosApi.Services
 
         public async Task<Producto> CreateProductoAsync(Producto producto)
         {
-            // Lógica de negocio movida aquí
             producto.Disponible = (producto.Stock > 0);
 
             _context.Productos.Add(producto);
             await _context.SaveChangesAsync();
-            return producto; // Devuelve el producto creado (con su nuevo Id)
+            return producto;
         }
 
         public async Task<bool> UpdateProductoAsync(int id, Producto producto)
         {
-            // Lógica de negocio movida aquí
             producto.Disponible = (producto.Stock > 0);
 
             _context.Entry(producto).State = EntityState.Modified;
@@ -61,14 +57,14 @@ namespace ProductosApi.Services
             {
                 if (!_context.Productos.Any(e => e.Id == id))
                 {
-                    return false; // No encontrado
+                    return false;
                 }
                 else
                 {
-                    throw; // Lanzamos la excepción original
+                    throw;
                 }
             }
-            return true; // Éxito
+            return true;
         }
 
         public async Task<bool> DeleteProductoAsync(int id)
@@ -76,26 +72,22 @@ namespace ProductosApi.Services
             var producto = await _context.Productos.FindAsync(id);
             if (producto == null)
             {
-                return false; // No encontrado
+                return false;
             }
 
             _context.Productos.Remove(producto);
             await _context.SaveChangesAsync();
-            return true; // Éxito
+            return true;
         }
 
         public async Task<bool> CheckIfNameExistsAsync(string nombre, int? idToIgnore = null)
         {
             var query = _context.Productos.AsQueryable();
 
-            // Si estamos actualizando (idToIgnore tiene valor), 
-            // excluimos ese ID de la búsqueda de duplicados.
             if (idToIgnore.HasValue)
             {
                 query = query.Where(p => p.Id != idToIgnore.Value);
             }
-
-            // Buscamos si algún *otro* producto tiene el mismo nombre
             return await query.AnyAsync(p => p.Nombre.ToLower() == nombre.ToLower());
         }
     }

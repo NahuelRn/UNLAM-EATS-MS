@@ -14,7 +14,7 @@ public partial class ProductoContext : DbContext
         : base(options)
     {
     }
-
+        
     public virtual DbSet<Producto> Productos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

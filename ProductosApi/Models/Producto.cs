@@ -15,7 +15,7 @@ public partial class Producto
     public string? Descripcion { get; set; }
 
     [Required(ErrorMessage = "El precio es obligatorio.")]
-    [Range(0.01, 9999999999999999.99, ErrorMessage = "El precio no puede ser negativo.")]
+    [Range(0.01, 9999999999999999.99, ErrorMessage = "El precio debe ser mayor a 0.")]
     [Column(TypeName = "decimal(18, 2)")]
     public decimal Precio { get; set; }
 
@@ -23,9 +23,7 @@ public partial class Producto
     [Range(0, int.MaxValue, ErrorMessage = "El stock no puede ser negativo.")]
     public int Stock { get; set; }
 
-    // ⚠️ Asume que ya modificaste la tabla Productos, re-escafoldeaste,
-    // y esta propiedad existe.
-    [Required(ErrorMessage = "El estado de disponibilidad es obligatorio.")] // <-- MOVER AQUÍ
-    public bool Disponible { get; set; } // Atributo aplicado a esta propiedad
+    [Required(ErrorMessage = "El estado de disponibilidad es obligatorio.")]
+    public bool Disponible { get; set; } 
 
 }
