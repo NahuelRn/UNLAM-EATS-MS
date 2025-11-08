@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProductosApi.Models;
@@ -14,50 +11,35 @@ namespace ProductosApi.Controllers
     [ApiController]
     public class ProductosController : ControllerBase
     {
-        private readonly ProductoContext _context;
+        private readonly IProductoService _productoService;
 
-        public ProductosController(ProductoContext context)
+        public ProductosController(IProductoService productoService)
         {
-            _context = context;
+            _productoService = productoService;
         }
 
-        // GET:
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Producto>>> GetProductos(
             [FromQuery] string? nombre,
             [FromQuery] decimal? precioMax)
         {
-            var query = _context.Productos.AsQueryable();
-
-            if (!string.IsNullOrEmpty(nombre))
-            {
-               
-                query = query.Where(p => p.Nombre.Contains(nombre));
-            }
-
-            if (precioMax.HasValue)
-            {
-                query = query.Where(p => p.Precio <= precioMax.Value);
-            }
-
-            return await query.ToListAsync();
+            var productos = await _productoService.GetProductosAsync(nombre, precioMax);
+            return Ok(productos);
         }
 
-        // GET:
         [HttpGet("{id}")]
         public async Task<ActionResult<Producto>> GetProducto(int id)
         {
-            var producto = await _context.Productos.FindAsync(id);
+            var producto = await _productoService.GetProductoByIdAsync(id);
 
             if (producto == null)
             {
                 return NotFound();
             }
 
-            return producto;
+            return Ok(producto);
         }
 
-        // PUT:
         [HttpPut("{id}")]
         public async Task<IActionResult> PutProducto(int id, Producto producto)
         {
@@ -67,98 +49,59 @@ namespace ProductosApi.Controllers
             }
 
             if (string.IsNullOrWhiteSpace(producto.Nombre))
-            {
-                return BadRequest("El nombre del producto no puede estar vacío.");
-            }
-            if (producto.Nombre.Length > 100)
-            {
-                return BadRequest("El nombre del producto no puede exceder los 100 caracteres.");
-            }
-
+                return BadRequest("El nombre no puede estar vacío.");
             if (producto.Precio < 0)
+                return BadRequest("El precio no puede ser negativo.");
+
+            if (await _productoService.CheckIfNameExistsAsync(producto.Nombre, id))
             {
-                return BadRequest("El precio del producto no puede ser negativo.");
-            }
-            if (producto.Stock < 0)
-            {
-                return BadRequest("El stock del producto no puede ser negativo.");
+                return Conflict("Ya existe otro producto con ese nombre.");
             }
 
-            producto.Disponible = (producto.Stock > 0);
+            var resultado = await _productoService.UpdateProductoAsync(id, producto);
 
-            _context.Entry(producto).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ProductoExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        // POST:
-        [HttpPost]
-        public async Task<ActionResult<Producto>> PostProducto(Producto producto)
-        {
-            if (producto.Precio < 0)
-            {
-                return BadRequest("El precio del producto no puede ser negativo.");
-            }
-            if (producto.Stock < 0)
-            {
-                return BadRequest("El stock del producto no puede ser negativo.");
-            }
-            if (string.IsNullOrWhiteSpace(producto.Nombre))
-            {
-                return BadRequest("El nombre del producto no puede estar vacío.");
-            }
-            if (producto.Nombre.Length > 100)
-            {
-                return BadRequest("El nombre del producto no puede exceder los 100 caracteres.");
-            }
-            bool nombreYaExiste = await _context.Productos
-                                        .AnyAsync(p => p.Nombre.ToLower() == producto.Nombre.ToLower());
-            if (nombreYaExiste)
-            {
-                return Conflict("Ya existe un producto con ese nombre.");
-            }
-            producto.Disponible = (producto.Stock > 0);
-            _context.Productos.Add(producto);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetProducto), new { id = producto.Id }, producto);
-        }
-
-        // DELETE:
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProducto(int id)
-        {
-            var producto = await _context.Productos.FindAsync(id);
-            if (producto == null)
+            if (!resultado)
             {
                 return NotFound();
             }
 
-            _context.Productos.Remove(producto);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
-        private bool ProductoExists(int id)
+        [HttpPost]
+        public async Task<ActionResult<Producto>> PostProducto(Producto producto)
         {
-            return _context.Productos.Any(e => e.Id == id);
+            if (string.IsNullOrWhiteSpace(producto.Nombre))
+                return BadRequest("El nombre no puede estar vacío.");
+            if (producto.Precio < 0)
+                return BadRequest("El precio no puede ser negativo.");
+
+            if (await _productoService.CheckIfNameExistsAsync(producto.Nombre))
+            {
+                return Conflict("Ya existe un producto con ese nombre.");
+            }
+
+            try
+            {
+                var productoCreado = await _productoService.CreateProductoAsync(producto);
+                return CreatedAtAction(nameof(GetProducto), new { id = productoCreado.Id }, productoCreado);
+            }
+            catch (DbUpdateException)
+            {
+                return StatusCode(500, "Error al guardar el producto.");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteProducto(int id)
+        {
+            var resultado = await _productoService.DeleteProductoAsync(id);
+            if (!resultado)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
         }
     }
 }

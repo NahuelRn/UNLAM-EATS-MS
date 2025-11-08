@@ -17,6 +17,8 @@ public partial class ProductoContext : DbContext
         
     public virtual DbSet<Producto> Productos { get; set; }
 
+    public virtual DbSet<Categoria> Categorias { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Producto>(entity =>

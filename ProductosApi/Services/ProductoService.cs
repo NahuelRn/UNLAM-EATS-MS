@@ -1,5 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ProductosApi.Models;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace ProductosApi.Services
 {
@@ -45,9 +48,15 @@ namespace ProductosApi.Services
 
         public async Task<bool> UpdateProductoAsync(int id, Producto producto)
         {
+            var productoExistente = await _context.Productos.FindAsync(id);
+            if (productoExistente == null)
+            {
+                return false;
+            }
+
             producto.Disponible = (producto.Stock > 0);
 
-            _context.Entry(producto).State = EntityState.Modified;
+            _context.Entry(productoExistente).CurrentValues.SetValues(producto);
 
             try
             {
@@ -88,6 +97,7 @@ namespace ProductosApi.Services
             {
                 query = query.Where(p => p.Id != idToIgnore.Value);
             }
+
             return await query.AnyAsync(p => p.Nombre.ToLower() == nombre.ToLower());
         }
     }
