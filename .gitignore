@@ -1,1 +1,9 @@
+# Archivos/carpetas generadas de compilación
+[Bb]in/
+[Oo]bj/
+
+# Archivos de usuario/solución de Visual Studio
 .vs/
+*.user
+*.suo
+*.userprefs
